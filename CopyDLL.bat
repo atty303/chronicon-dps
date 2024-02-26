@@ -1,0 +1,1 @@
+copy %1 "C:\Program Files (x86)\Steam\steamapps\common\Chronicon\mods\Aurie"
