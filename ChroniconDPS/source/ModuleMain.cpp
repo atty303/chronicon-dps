@@ -41,6 +41,10 @@ inline static void draw_text_transformed(double x, double y, const char* string,
 	CallBuiltin("draw_text_transformed", { x, y, string, xscale, yscale, angle });
 }
 
+inline static bool keyboard_check_pressed(double key) {
+	return CallBuiltin("keyboard_check_pressed", { key }).AsBool();
+}
+
 static std::string formatWithSuffix(double value)
 {
 	const char* suffixes[] = { "", "k", "M", "B", "T", "Qa" };
@@ -52,12 +56,12 @@ static std::string formatWithSuffix(double value)
 		suffixIndex++;
 	}
 
-	return std::format("{:.3f}{}", value, suffixes[suffixIndex]);
+	return std::format("{:.1f}{}", value, suffixes[suffixIndex]);
 }
 
 RValue& FloatNumCreateHook(CInstance *Self, CInstance *Other, RValue& ReturnValue, int ArgumentCount, RValue** Arguments)
 {
-	g_ModuleInterface->PrintWarning("[ChroniconDPS] FloatNumCreateHook: %f", Arguments[1]->AsReal());
+	// g_ModuleInterface->PrintWarning("[ChroniconDPS] FloatNumCreateHook: %f", Arguments[1]->AsReal());
 	// g_ModuleInterface->PrintWarning("[Example Plugin] 0: %d %f", Arguments[0]->m_Kind, Arguments[0]->AsReal()); // 0
 	// g_ModuleInterface->PrintWarning("[Example Plugin] 1: %d %f", Arguments[1]->m_Kind, Arguments[1]->AsReal()); // 0 
 	// g_ModuleInterface->PrintWarning("[Example Plugin] 2: %d %d", Arguments[2]->m_Kind, Arguments[2]->AsBool()); // 13
@@ -72,6 +76,11 @@ RValue& FloatNumCreateHook(CInstance *Self, CInstance *Other, RValue& ReturnValu
 
 RValue& GuiDrawHook(CInstance *Self, CInstance *Other, RValue& ReturnValue, int ArgumentCount, RValue** Arguments)
 {
+    // g_ModuleInterface->PrintWarning("[ChroniconDPS] - GuiDrawHook %d %p", ArgumentCount, g_FloatNumCreate);
+	static long frameCount = 0;
+	static std::string dpsText;
+	static bool isOneShot = false;
+
 	double damage = 0.0;
 	for (auto d : g_CurrentDamages)
 	{
@@ -79,26 +88,56 @@ RValue& GuiDrawHook(CInstance *Self, CInstance *Other, RValue& ReturnValue, int 
 	}
 	g_CurrentDamages.clear();
 
-	g_DamageHistory.push_back({ damage });
-	if (g_DamageHistory.size() > 5 * 60)
+	if (isOneShot)
 	{
-		g_DamageHistory.pop_front();
+		if (!(damage == 0.0 && g_DamageHistory.empty()) && g_DamageHistory.size() <= 5 * 60)
+		{
+			g_DamageHistory.push_back({ damage });
+		}
+	} else
+	{
+		g_DamageHistory.push_back({ damage });
+		if (g_DamageHistory.size() > 5 * 60 && !isOneShot)
+		{
+			g_DamageHistory.pop_front();
+		}
 	}
 
-	double total = 0.0;
-	for (auto d : g_DamageHistory)
+	if (frameCount % 30 == 0)
 	{
-		total += d.value;
+		double total = 0.0;
+		for (auto d : g_DamageHistory)
+		{
+			total += d.value;
+		}
+
+		double dps = floor(total / 5);
+
+		dpsText = std::format("DPS: {}", formatWithSuffix(dps));
+	}
+	frameCount++;
+
+	if (keyboard_check_pressed(0x70)) // VK_F1
+	{
+		g_DamageHistory.clear();
+		isOneShot = false;
+	}
+	if (keyboard_check_pressed(0x71)) // VK_F2
+	{
+		g_DamageHistory.clear();
+		isOneShot = true;
 	}
 
-	double dps = floor(total / 5);
-
-	std::string text = std::format("DPS: {}", formatWithSuffix(dps));
-
-	// g_ModuleInterface->PrintWarning("[ChroniconDPS] - GuiDrawHook %d %p", ArgumentCount, g_FloatNumCreate);
 	draw_set_font("font_large_GUI_latin");
-	draw_set_color(0xFFFFFF);
-	draw_text_transformed(0, 0, text.c_str(), 2, 2, 0);
+	if (isOneShot)
+	{
+		draw_set_color(0x00FFFF);
+	}
+	else
+	{
+		draw_set_color(0xFFFFFF);
+	}
+	draw_text_transformed(0, 0, dpsText.c_str(), 2, 2, 0);
 
 	return (*g_GuiDraw)(Self, Other, ReturnValue, ArgumentCount, Arguments);
 }
