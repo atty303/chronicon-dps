@@ -6,7 +6,7 @@ This is a mod that adds a DPS meter to Chronicon.
 
 ## Installation
 
-* Download the `ChroniconDPS.dll` file from the latest release of my mod
+* Download the `ChroniconDPS.dll` file from the [latest release of my mod](https://github.com/atty303/chronicon-dps/releases/latest)
 * Download `AurieManager.exe` from the [latest release of Aurie](https://github.com/AurieFramework/Aurie/releases/latest)
 * Run the `AurieManager.exe`
    * Click "Add Game" next to the game drop-down
