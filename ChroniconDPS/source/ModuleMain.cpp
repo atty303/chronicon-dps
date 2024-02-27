@@ -7,6 +7,7 @@ using namespace YYTK;
 struct Damage
 {
 	double value;
+	std::string targetName;
 };
 
 static YYTKInterface* g_ModuleInterface = nullptr;
@@ -64,8 +65,37 @@ static std::string formatWithSuffix(double value)
 // 4=target object: pointer
 RValue& FloatNumCreateHook(CInstance *Self, CInstance *Other, RValue& ReturnValue, int ArgumentCount, RValue** Arguments)
 {
-	// g_ModuleInterface->PrintWarning("[ChroniconDPS] FloatNumCreateHook: 0=0x%x, damage=%f, isCrit=%d, 3=0x%x, target=0x%x, 5=0x%x",
-	// 	Arguments[0]->AsReal(), Arguments[1]->AsReal(), Arguments[2]->AsBool(), Arguments[3]->AsReal(), Arguments[4]->m_Pointer, Arguments[5]->AsReal());
+	// g_ModuleInterface->PrintWarning("[ChroniconDPS] FloatNumCreateHook: self=%s, other=%s, 0=0x%x, damage=%f, isCrit=%d, 3=0x%x, target=%d, 5=0x%x",
+	// 	Self->m_Object->m_Name, Other->m_Object->m_Name,
+	// 	Arguments[0]->AsReal(), Arguments[1]->AsReal(), Arguments[2]->AsBool(), Arguments[3]->AsReal(), Arguments[4]->m_i32, Arguments[5]->AsReal());
+
+	// CInstance* target;
+	// if (!AurieSuccess(g_ModuleInterface->GetInstanceObject(Arguments[4]->m_i32, target)))
+	// {
+	// 	g_ModuleInterface->PrintError(__FILE__, __LINE__, "[ChroniconDPS] Failed to get instance object");
+	// }
+	// if (target)
+	// {
+	// 	RValue inst = new RValue(target);
+	// 	std::string out;
+	// 	g_ModuleInterface->RValueToString(inst, out);
+	// 	g_ModuleInterface->PrintWarning(out);
+	// 	g_ModuleInterface->PrintWarning(target->m_Object->m_Name);
+	//
+	// 	// int count = g_ModuleInterface->GetRunnerInterface().StructGetKeys(&inst, nullptr, nullptr);
+	// 	// g_ModuleInterface->PrintWarning("count: %d", count);
+	//
+	// 	if (!AurieSuccess(g_ModuleInterface->EnumInstanceMembers(Other, [](const char* name, RValue* value) {
+	// 		std::string out;
+	// 		g_ModuleInterface->RValueToString(*value, out);
+	// 		g_ModuleInterface->PrintWarning("name: %s, value: %s", name, out);
+	// 		return false;
+	// 	})))
+	// 	{
+	// 		g_ModuleInterface->PrintError(__FILE__, __LINE__, "[ChroniconDPS] Failed to enum instance members");
+	// 	}
+	// }
+
 	// g_ModuleInterface->PrintWarning("[Example Plugin] 0: %d %f", Arguments[0]->m_Kind, Arguments[0]->AsReal()); // 0
 	// g_ModuleInterface->PrintWarning("[Example Plugin] 1: %d %f", Arguments[1]->m_Kind, Arguments[1]->AsReal()); // 0 
 	// g_ModuleInterface->PrintWarning("[Example Plugin] 2: %d %d", Arguments[2]->m_Kind, Arguments[2]->AsBool()); // 13
@@ -73,7 +103,20 @@ RValue& FloatNumCreateHook(CInstance *Self, CInstance *Other, RValue& ReturnValu
 	// g_ModuleInterface->PrintWarning("[Example Plugin] 4: %d", Arguments[4]->m_Kind); // 15
 	// g_ModuleInterface->PrintWarning("[Example Plugin] 5: %d %f", Arguments[5]->m_Kind, Arguments[5]->AsReal()); // 0
 
-	g_CurrentDamages.push_back({ Arguments[1]->AsReal() });
+
+	// 0: Physical
+	// 1: Fire
+	// 3: Lightning
+	// 5: Holy
+	RValue* element;
+	g_ModuleInterface->GetInstanceMember(Other, "element", element);
+	// g_ModuleInterface->PrintWarning("%f", element->AsReal());
+
+	auto targetName = std::string(Self->m_Object->m_Name);
+	if (targetName != "obj_player")
+	{
+		g_CurrentDamages.push_back({ Arguments[1]->AsReal(), targetName });
+	}
 
 	return (*g_FloatNumCreate)(Self, Other, ReturnValue, ArgumentCount, Arguments);
 }
@@ -97,11 +140,11 @@ RValue& GuiDrawHook(CInstance *Self, CInstance *Other, RValue& ReturnValue, int 
 	{
 		if (!(damage == 0.0 && g_DamageHistory.empty()) && g_DamageHistory.size() <= 5 * 60)
 		{
-			g_DamageHistory.push_back({ damage });
+			g_DamageHistory.push_back({ damage, "" });
 		}
 	} else
 	{
-		g_DamageHistory.push_back({ damage });
+		g_DamageHistory.push_back({ damage, "" });
 		if (g_DamageHistory.size() > 5 * 60 && !isOneShot)
 		{
 			g_DamageHistory.pop_front();
