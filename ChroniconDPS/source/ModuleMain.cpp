@@ -59,9 +59,13 @@ static std::string formatWithSuffix(double value)
 	return std::format("{:.1f}{}", value, suffixes[suffixIndex]);
 }
 
+// 1=damage: double
+// 2=isCrit: bool
+// 4=target object: pointer
 RValue& FloatNumCreateHook(CInstance *Self, CInstance *Other, RValue& ReturnValue, int ArgumentCount, RValue** Arguments)
 {
-	// g_ModuleInterface->PrintWarning("[ChroniconDPS] FloatNumCreateHook: %f", Arguments[1]->AsReal());
+	// g_ModuleInterface->PrintWarning("[ChroniconDPS] FloatNumCreateHook: 0=0x%x, damage=%f, isCrit=%d, 3=0x%x, target=0x%x, 5=0x%x",
+	// 	Arguments[0]->AsReal(), Arguments[1]->AsReal(), Arguments[2]->AsBool(), Arguments[3]->AsReal(), Arguments[4]->m_Pointer, Arguments[5]->AsReal());
 	// g_ModuleInterface->PrintWarning("[Example Plugin] 0: %d %f", Arguments[0]->m_Kind, Arguments[0]->AsReal()); // 0
 	// g_ModuleInterface->PrintWarning("[Example Plugin] 1: %d %f", Arguments[1]->m_Kind, Arguments[1]->AsReal()); // 0 
 	// g_ModuleInterface->PrintWarning("[Example Plugin] 2: %d %d", Arguments[2]->m_Kind, Arguments[2]->AsBool()); // 13
@@ -80,6 +84,7 @@ RValue& GuiDrawHook(CInstance *Self, CInstance *Other, RValue& ReturnValue, int 
 	static long frameCount = 0;
 	static std::string dpsText;
 	static bool isOneShot = false;
+	static double peakDPS = 0.0;
 
 	double damage = 0.0;
 	for (auto d : g_CurrentDamages)
@@ -103,16 +108,20 @@ RValue& GuiDrawHook(CInstance *Self, CInstance *Other, RValue& ReturnValue, int 
 		}
 	}
 
+	double total = 0.0;
+	for (auto d : g_DamageHistory)
+	{
+		total += d.value;
+	}
+
+	double dps = floor(total / 5);
+	if (dps > peakDPS)
+	{
+		peakDPS = dps;
+	}
+
 	if (frameCount % 30 == 0)
 	{
-		double total = 0.0;
-		for (auto d : g_DamageHistory)
-		{
-			total += d.value;
-		}
-
-		double dps = floor(total / 5);
-
 		dpsText = std::format("DPS: {}", formatWithSuffix(dps));
 	}
 	frameCount++;
@@ -120,11 +129,13 @@ RValue& GuiDrawHook(CInstance *Self, CInstance *Other, RValue& ReturnValue, int 
 	if (keyboard_check_pressed(0x70)) // VK_F1
 	{
 		g_DamageHistory.clear();
+		peakDPS = 0.0;
 		isOneShot = false;
 	}
 	if (keyboard_check_pressed(0x71)) // VK_F2
 	{
 		g_DamageHistory.clear();
+		peakDPS = 0.0;
 		isOneShot = true;
 	}
 
@@ -137,7 +148,8 @@ RValue& GuiDrawHook(CInstance *Self, CInstance *Other, RValue& ReturnValue, int 
 	{
 		draw_set_color(0xFFFFFF);
 	}
-	draw_text_transformed(0, 0, dpsText.c_str(), 2, 2, 0);
+	const auto text = std::format("{}\nPeak DPS: {}", dpsText, formatWithSuffix(peakDPS));
+	draw_text_transformed(0, 0,  text.c_str(), 2, 2, 0);
 
 	return (*g_GuiDraw)(Self, Other, ReturnValue, ArgumentCount, Arguments);
 }
